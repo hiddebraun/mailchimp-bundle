@@ -17,10 +17,10 @@ class Configuration implements ConfigurationInterface
      */
     public function getConfigTreeBuilder(): TreeBuilder
     {
-        $treeBuilder = new TreeBuilder('welp_mailchimp');
+	    $treeBuilder = new TreeBuilder('welp_mailchimp');
+	    $rootNode = $treeBuilder->getRootNode();
 
-        $treeBuilder
-            ->getRootNode()
+        $rootNode
             ->children()
                 ->scalarNode('api_key')
                     ->isRequired()
@@ -31,14 +31,14 @@ class Configuration implements ConfigurationInterface
                 // lists
                 ->arrayNode('lists')
                     ->useAttributeAsKey('listId')
-                    ->prototype('array')
+                    ->arrayPrototype()
                         ->children()
                             ->scalarNode('subscriber_provider')->end()
                             ->scalarNode('webhook_secret')->end()
                             ->scalarNode('webhook_url')->end()
                             // merge_fields
                             ->arrayNode('merge_fields')
-                                ->prototype('array')
+                                ->arrayPrototype()
                                     ->children()
                                         ->scalarNode('tag')
                                             ->isRequired()
@@ -67,7 +67,7 @@ class Configuration implements ConfigurationInterface
                                                 ->scalarNode('date_format')
                                                 ->end()
                                                 ->arrayNode('choices')
-                                                    ->prototype('scalar')->end()
+                                                    ->scalarPrototype()->end()
                                                 ->end()
                                                 ->integerNode('size')
                                                 ->end()
