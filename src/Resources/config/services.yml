@@ -1,0 +1,77 @@
+parameters:
+    welp_mailchimp.list_synchronizer_class: Welp\MailchimpBundle\Subscriber\ListSynchronizer
+    welp_mailchimp.list_repository_class: Welp\MailchimpBundle\Subscriber\ListRepository
+    welp_mailchimp.subscriber_listener_class: Welp\MailchimpBundle\Event\SubscriberListener
+    welp_mailchimp.provider_factory_class: Welp\MailchimpBundle\Provider\ProviderFactory
+    welp_mailchimp.config_list_provider_class: Welp\MailchimpBundle\Provider\ConfigListProvider
+
+services:
+    # MailChimp
+    welp_mailchimp.mailchimp_master:
+        class: DrewM\MailChimp\MailChimp
+        public: true
+        arguments: ['%welp_mailchimp.api_key%']
+
+    welp_mailchimp.list_repository:
+        class: "%welp_mailchimp.list_repository_class%"
+        public: true
+        arguments:
+            - '@welp_mailchimp.mailchimp_master'
+
+    welp_mailchimp.list_synchronizer:
+        class: "%welp_mailchimp.list_synchronizer_class%"
+        public: true
+        arguments:
+            - '@welp_mailchimp.list_repository'
+    
+    welp_mailchimp.provider.factory:
+        class: "%welp_mailchimp.provider_factory_class%"
+        public: true
+        
+    welp_mailchimp.list_provider:
+        class: "%welp_mailchimp.config_list_provider_class%"
+        public: true
+        arguments:
+            - '@welp_mailchimp.provider.factory'
+            - '%welp_mailchimp.lists%'
+
+    # Events
+    welp_mailchimp.subscriber_listener:
+        class: "%welp_mailchimp.subscriber_listener_class%"
+        arguments:
+            - '@welp_mailchimp.list_repository'
+        tags:
+            - { name: kernel.event_listener, event: welp.mailchimp.subscribe, method: onSubscribe }
+            - { name: kernel.event_listener, event: welp.mailchimp.unsubscribe, method: onUnsubscribe }
+            - { name: kernel.event_listener, event: welp.mailchimp.pending, method: onPending }
+            - { name: kernel.event_listener, event: welp.mailchimp.clean, method: onClean }
+            - { name: kernel.event_listener, event: welp.mailchimp.update, method: onUpdate }
+            - { name: kernel.event_listener, event: welp.mailchimp.change_email, method: onChangeEmail }
+            - { name: kernel.event_listener, event: welp.mailchimp.delete, method: onDelete }
+
+    # Commands
+    welp_mailchimp.command.synchronize_merge_fields:
+        class: Welp\MailchimpBundle\Command\SynchronizeMergeFieldsCommand
+        arguments: 
+            - '@welp_mailchimp.list_synchronizer'
+            - '@welp_mailchimp.list_provider.current'
+
+        tags:
+            - { name: 'console.command', command: 'welp:mailchimp:synchronize-merge-fields' }   
+       
+    welp_mailchimp.command.synchronize_subscribers:
+        class: Welp\MailchimpBundle\Command\SynchronizeSubscribersCommand
+        arguments: 
+            - '@welp_mailchimp.list_synchronizer'
+            - '@welp_mailchimp.list_provider.current'
+            - '@welp_mailchimp.mailchimp_master'
+        tags:
+            - { name: 'console.command', command: 'welp:mailchimp:synchronize-subscribers' }   
+
+    welp_mailchimp.command.webhook:
+        class: Welp\MailchimpBundle\Command\WebhookCommand
+        arguments: 
+            - '@welp_mailchimp.list_provider.current'
+            - '@welp_mailchimp.list_repository'
+        tags:
+            - { name: 'console.command', command: 'welp:mailchimp:webhook' }
