@@ -136,10 +136,18 @@ class SynchronizeSubscribersCommand extends Command
      */
     private function displayBatchInfo(array $batch): string
     {
+
+		$batchId = $batch['id'] ?? '?';
+		$batchStatus = $batch['status'] ?? '?';
+	    $batchFinished = $batch['finished_operations'] ?? '?';
+	    $batchTotal = $batch['total_operations'] ?? '?';
+	    $batchErrored = $batch['errored_operations'] ?? '?';
+		$batchResponseUrl = $batch['response_body_url'] ?? '?';
+
         if ('finished' === $batch['status']) {
-            return sprintf('batch %s is finished, operations %d/%d with %d errors. http responses: %s', $batch['id'], $batch['finished_operations'], $batch['total_operations'], $batch['errored_operations'], $batch['response_body_url']);
+            return sprintf('batch %s is finished, operations %d/%d with %d errors. http responses: %s', $batchId, $batchFinished, $batchTotal, $batchErrored, $batchResponseUrl);
         }
 
-        return sprintf('batch %s, current status %s, operations %d/%d with %d errors', $batch['id'], $batch['status'], $batch['finished_operations'], $batch['total_operations'], $batch['errored_operations']);
+        return sprintf('batch %s, current status %s, operations %d/%d with %d errors', $batchId, $batchStatus, $batchFinished, $batchTotal, $batchErrored);
     }
 }
