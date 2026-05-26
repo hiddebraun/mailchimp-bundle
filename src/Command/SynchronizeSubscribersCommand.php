@@ -74,7 +74,9 @@ class SynchronizeSubscribersCommand extends Command
             $batchesResult = $this->listSynchronizer->synchronize($list);
 
             if ($input->getOption('follow-sync')) {
-                while (!$this->batchesFinished($batchesResult)) {
+                $maxIterations = 300; // max ~10 minuten (300 x sleep(2))
+                $iterations = 0;
+                while (!$this->batchesFinished($batchesResult) && $iterations < $maxIterations) {
                     $batchesResult = $this->refreshBatchesResult($batchesResult);
 
                     foreach ($batchesResult as $key => $batch) {
@@ -82,6 +84,11 @@ class SynchronizeSubscribersCommand extends Command
                     }
 
                     sleep(2);
+                    ++$iterations;
+                }
+
+                if ($iterations >= $maxIterations) {
+                    $output->writeln('<error>Timeout: batches niet afgerond binnen 10 minuten.</error>');
                 }
             }
         }
@@ -100,9 +107,20 @@ class SynchronizeSubscribersCommand extends Command
     {
         $refreshedBatchsResults = [];
 
-        foreach ($batchesResult as $key => $batch) {
-            $batch = $this->mailchimp->get('batches/'.$batch['id']);
-            $refreshedBatchsResults[] = $batch;
+        foreach ($batchesResult as $batch) {
+            $batchId = $batch['id'] ?? null;
+            if ($batchId === null) {
+                // vorige iteratie gaf al een error: behandel als klaar
+                $refreshedBatchsResults[] = ['status' => 'finished', 'id' => '?'];
+                continue;
+            }
+            $result = $this->mailchimp->get('batches/'.$batchId);
+            // false of een API-fout (bijv. 404 verlopen batch) → behandel als klaar
+            if (!is_array($result) || !isset($result['id'])) {
+                $refreshedBatchsResults[] = ['status' => 'finished', 'id' => $batchId];
+                continue;
+            }
+            $refreshedBatchsResults[] = $result;
         }
 
         return $refreshedBatchsResults;
@@ -117,14 +135,13 @@ class SynchronizeSubscribersCommand extends Command
      */
     private function batchesFinished(array $batchesResult): bool
     {
-        $allfinished = true;
-        foreach ($batchesResult as $key => $batch) {
-            if ('finished' !== $batch['status']) {
-                $allfinished = false;
+        foreach ($batchesResult as $batch) {
+            if ('finished' !== ($batch['status'] ?? null)) {
+                return false;
             }
         }
 
-        return $allfinished;
+        return true;
     }
 
     /**
@@ -144,7 +161,7 @@ class SynchronizeSubscribersCommand extends Command
 	    $batchErrored = $batch['errored_operations'] ?? '?';
 		$batchResponseUrl = $batch['response_body_url'] ?? '?';
 
-        if ('finished' === $batch['status']) {
+        if ('finished' === ($batch['status'] ?? null)) {
             return sprintf('batch %s is finished, operations %d/%d with %d errors. http responses: %s', $batchId, $batchFinished, $batchTotal, $batchErrored, $batchResponseUrl);
         }
 
